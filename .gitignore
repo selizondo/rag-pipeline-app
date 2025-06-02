@@ -1,0 +1,9 @@
+chroma_db/
+obs.db
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.DS_Store
+.env
+CLAUDE.md
