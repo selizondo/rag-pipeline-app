@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
+from core.config import load_env
+load_env()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
