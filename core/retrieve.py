@@ -157,15 +157,18 @@ class HybridRetriever:
             )
         return results
 
-    def add_chunks(self, chunks: list[dict]) -> None:
-        """Add new chunks to Chroma and rebuild BM25 index."""
-        texts = [c["text"] for c in chunks]
-        ids = [c["doc_id"] for c in chunks]
+    def add_chunks(self, chunks: list) -> None:
+        """Add new chunks (Chunk dataclasses or dicts) to Chroma and rebuild BM25 index."""
+        def _get(c, key, default=""):
+            return getattr(c, key, None) if hasattr(c, key) else c.get(key, default)
+
+        texts = [_get(c, "text") for c in chunks]
+        ids = [_get(c, "doc_id") for c in chunks]
         metas = [
             {
-                "source": c.get("source", ""),
-                "section": c.get("section", ""),
-                "chunk_index": c.get("chunk_index", 0),
+                "source": _get(c, "source"),
+                "section": _get(c, "section"),
+                "chunk_index": _get(c, "chunk_index", 0),
             }
             for c in chunks
         ]

@@ -104,18 +104,7 @@ def ingest(req: IngestRequest, pipeline: RAGPipeline = Depends(get_pipeline)):
     if not chunks:
         raise HTTPException(status_code=400, detail="No .md/.txt files found in directory")
 
-    pipeline.retriever.add_chunks(
-        [
-            {
-                "text": c.text,
-                "doc_id": c.doc_id,
-                "source": c.source,
-                "section": c.section,
-                "chunk_index": c.chunk_index,
-            }
-            for c in chunks
-        ]
-    )
+    pipeline.retriever.add_chunks(chunks)
 
     files = len({c.source for c in chunks})
     return IngestResponse(
