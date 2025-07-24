@@ -149,26 +149,32 @@ Chunk size 256, overlap 32 is the configuration used here.
 
 ---
 
-## Quick Start (5 commands)
+## Quick Start
+
+**Runs locally — no GPU required. Ollama is the default LLM.**
 
 ```bash
-# 1. Install
-pip install -r requirements.txt
+# 1. Set up env (API keys live in workspace master .env)
+cp ../career/.env.example ../career/.env
+# Default LLM_PROVIDER=ollama — no key needed.
+# For Anthropic: uncomment ANTHROPIC_API_KEY and set LLM_PROVIDER=anthropic
 
-# 2. Set LLM backend
-export LLM_PROVIDER=anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-# OR: export LLM_PROVIDER=ollama  (requires Ollama running with llama3.2)
+# 2. Activate shared venv
+source ~/.venvs/newline/bin/activate
+# or: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
-# 3. Start API
+# 3. Pull Ollama model (if not already pulled)
+ollama pull qwen2.5-coder:7b
+
+# 4. Start API
 uvicorn api.main:app --reload --port 8000
 
-# 4. Ingest the demo corpus (new terminal)
+# 5. Ingest a corpus (new terminal)
 curl -X POST http://localhost:8000/api/v1/ingest \
   -H "Content-Type: application/json" \
   -d '{"corpus_dir": "./demo/corpus"}'
 
-# 5. Start UI
+# 6. Start UI
 streamlit run ui/app.py
 ```
 
