@@ -95,6 +95,8 @@ The 4-point Accuracy@4 improvement at α=0.7 justified adding `rank_bm25`. The t
 
 The α slider is exposed in the UI so you can see the difference live.
 
+If metadata or version filters are used, they should be applied before the combined relevance ranking rather than as a post-hoc filter; otherwise stale or irrelevant chunks can still surface at the top. The hybrid search path also serves as the operational fallback when vector-only retrieval misses exact keyword matches.
+
 ---
 
 ## Decision 2: FastAPI + Streamlit Split

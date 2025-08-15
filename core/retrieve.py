@@ -82,7 +82,8 @@ class HybridRetriever:
         k: int = 5,
         alpha: float = 0.7,
     ) -> list[RetrievedChunk]:
-        if not self._all_docs:
+        query_text = query_text.strip()
+        if not self._all_docs or not query_text:
             return []
 
         # --- vector search ---

@@ -53,6 +53,9 @@ def health(pipeline: RAGPipeline = Depends(get_pipeline)):
 
 @router.post("/query/stream")
 def query_stream(req: QueryRequest, pipeline: RAGPipeline = Depends(get_pipeline)):
+    if not req.question.strip():
+        raise HTTPException(status_code=422, detail="Question cannot be empty")
+
     pipeline.k = req.k
     pipeline.alpha = req.alpha
 
@@ -68,6 +71,9 @@ def query_stream(req: QueryRequest, pipeline: RAGPipeline = Depends(get_pipeline
 
 @router.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest, pipeline: RAGPipeline = Depends(get_pipeline)):
+    if not req.question.strip():
+        raise HTTPException(status_code=422, detail="Question cannot be empty")
+
     pipeline.k = req.k
     pipeline.alpha = req.alpha
 

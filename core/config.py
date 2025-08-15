@@ -11,7 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent  # rag-pipeline-app/
-_MASTER_ENV = _PROJECT_ROOT.parent / ".env"             # career/.env
+_MASTER_ENV = _PROJECT_ROOT.parent.parent / ".env"      # career/.env
 
 
 def load_env() -> None:
