@@ -32,6 +32,10 @@ class QueryMeta(BaseModel):
     retrieval_ms: float
     generation_ms: float
     num_chunks: int
+    # Which retrieval strategy was actually used. Normally "hybrid" (BM25 + vector),
+    # but falls back to "vector_only" if BM25 index wasn't built (e.g., empty corpus
+    # at startup). Callers can alert on non-hybrid to detect silent degradation.
+    retrieval_strategy: str = "hybrid"
 
 
 class QueryResponse(BaseModel):
@@ -39,6 +43,13 @@ class QueryResponse(BaseModel):
     sources: list[SourceRef]
     chunks: list[ChunkRef]
     meta: QueryMeta
+    # Degradation warnings surfaced in the response so callers can alert
+    # without parsing logs. Empty list = everything worked normally.
+    # Example entries: "bm25_index_missing", "llm_generation_error", "empty_corpus"
+    # WHY in response instead of logs only: logs require a monitoring agent to
+    # parse and correlate. Response fields let the calling client (UI, eval harness,
+    # integration test) observe degradation directly.
+    warnings: list[str] = []
 
 
 class IngestRequest(BaseModel):
