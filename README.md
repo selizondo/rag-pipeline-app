@@ -275,3 +275,14 @@ rag-pipeline-app/
 - **Multi-tenant collections:** one Chroma collection per tenant; JWT middleware extracts `tenant_id`; per-tenant delete, access control, usage metering
 - **LangFuse integration:** ship latency and judge scores to LangFuse automatically after each eval run — replaces manual SQLite queries with a dashboard
 - **Hosted deployment:** FastAPI on Railway, UI on Streamlit Community Cloud, Qdrant Cloud for the vector store — total cost ~$30/month at demo scale
+
+---
+
+## Related Projects
+
+| Project | Connection |
+|---|---|
+| [rag-pipeline-from-scratch](../rag-pipeline-from-scratch) | The baseline this system extends — 72% Accuracy@4 with vector-only retrieval vs 83% here with hybrid BM25+vector |
+| [llm-eval-harness](../llm-eval-harness) | Evaluation layer — `evals/cases/rag_qa.jsonl` was built against this system; run `make eval` to reproduce the α=0.7 result |
+| [llm-drift-monitor](../llm-drift-monitor) | Monitoring counterpart — drift monitor catches production degradation between the releases this harness validates |
+| [rag-ragas-eval](../rag-ragas-eval) | RAGAS-based evaluation of the same retrieval pipeline using faithfulness, answer relevancy, and context precision |
