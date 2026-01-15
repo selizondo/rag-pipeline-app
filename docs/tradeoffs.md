@@ -40,15 +40,37 @@ Default `α = 0.7` (70% vector, 30% BM25), tunable per-request via API.
 
 ---
 
-## Word-Based Chunking (256 words, 32-word overlap)
+## ADR-03: Chunking Strategy — Word-Based vs Sentence-Boundary
 
-**Decision:** Split on whitespace boundaries; no sentence-awareness.
+**Decision:** Word-based chunking with fixed size (256 words) and overlap (32 words). No sentence-awareness.
 
-**Why:** Simple, predictable, no NLP pipeline dependency. For a demo corpus of ML concepts, sentences are generally short enough that mid-sentence splits are rare.
+**Current approach (`core/ingest.py → _word_chunks`):**
+```python
+words = text.split()           # naive whitespace split
+chunk = " ".join(words[start:end])
+start += chunk_size - overlap
+```
 
-**Tradeoff:** Not evaluated against sentence-boundary chunking. The rag-pipeline-from-scratch and rag-ragas-eval projects show sentence-boundary chunking improves context_recall on long documents. This corpus is short-form Q&A so the gap is likely smaller.
+**Alternative considered:** Sentence-boundary chunking via spaCy (`nlp(text).sents`) or NLTK (`sent_tokenize`). Preserves sentence integrity so every chunk is a semantically complete unit.
 
-**Documented gap:** No measurement of word-based vs sentence-boundary on this corpus.
+**Why word-based was chosen:**
+1. No additional NLP dependency (spaCy model download ~12MB; NLTK punkt data).
+2. Chunk sizes are strictly predictable — simplifies BM25 index memory estimation (400MB at 50k chunks).
+3. Demo corpus is short-form Q&A paragraphs where mid-sentence splits are infrequent.
+
+**Known failure mode:** Word-based can split mid-sentence, burying key content between two chunks. Example: "LoRA stands for Low-Rank [chunk boundary] Adaptation" yields two chunks neither of which fully defines LoRA. Sentence-boundary chunking eliminates this class of failure.
+
+**Measurement plan:** Compare faithfulness and context_recall between strategies using RAGAS once the eval pipeline is operational:
+```
+make eval-save   # word-based baseline → artifacts/eval/latest_run.json
+# switch core/ingest.py to sentence-boundary chunker
+make eval-save   # compare metrics
+```
+Hypothesis: sentence-boundary improves faithfulness on long-document corpora (>500 words/doc); impact is smaller on this short-form Q&A corpus.
+
+**Overhead of sentence-boundary:** spaCy `en_core_web_sm` adds ~150ms/doc at N=10k docs (15 min extra ingest time). Acceptable at batch-ingest scale; negligible at demo scale.
+
+**Status:** Not yet measured on this corpus. Open measurement task tracked in `docs/STAFF_REVIEW.md`.
 
 ---
 
@@ -68,7 +90,9 @@ Default `α = 0.7` (70% vector, 30% BM25), tunable per-request via API.
 
 **Why:** Zero infrastructure. Self-contained, portable, queryable with standard SQL. Sufficient for single-user demo and development analysis.
 
-**Scale boundary:** SQLite is single-writer. Multi-instance deployments (load-balanced FastAPI) require PostgreSQL. At >10k queries/day, ship logs to Datadog/Honeycomb for real-time alerting.
+**Scale boundary — single writer:** SQLite serialises all writes through a file lock. A single FastAPI instance is fine (writes are short: one INSERT per query). The breakpoint is **horizontal scaling**: two or more FastAPI replicas writing concurrently will hit `database is locked` errors at ~100+ concurrent writers. Fix: move to PostgreSQL with asyncpg + SQLAlchemy async (`async_engine = create_async_engine("postgresql+asyncpg://...")`). The `_conn()` context manager in `core/pipeline.py` is the only write site — swap the driver there. At >10k queries/day, supplement with Datadog/Honeycomb for real-time alerting.
+
+**Inline pointer:** See `core/pipeline.py → _conn()` for the single write site to replace.
 
 ---
 

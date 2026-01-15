@@ -1,4 +1,4 @@
-.PHONY: install dev api ui demo test eval clean
+.PHONY: install dev api ui demo test eval eval-save eval-compare eval-smoke clean
 
 # --- Local development ---
 
@@ -60,6 +60,16 @@ eval:
 	python evals/run_evals.py \
 	  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
 	  --tag rag_app_v1
+
+# Save eval results to the committed artifact.
+# Requires: Ollama running + llm-eval-harness sibling repo.
+# Result is committed so accuracy regressions are detectable in code review.
+eval-save:
+	mkdir -p artifacts/eval
+	python evals/run_evals.py \
+	  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
+	  --tag rag_app_v1 \
+	  --output artifacts/eval/latest_run.json
 
 eval-compare:
 	@echo "Usage: make eval-compare COMPARE=<run_id>"

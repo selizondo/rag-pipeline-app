@@ -86,6 +86,11 @@ class RAGPipeline:
 
     @contextmanager
     def _conn(self):
+        # SQLite single-writer boundary: this is the only write site in the codebase.
+        # One FastAPI instance is fine. Horizontal scaling (≥2 replicas) causes
+        # "database is locked" errors at ~100+ concurrent writers.
+        # Upgrade path: replace sqlite3.connect() here with asyncpg + SQLAlchemy async.
+        # See docs/tradeoffs.md § "SQLite for Observability" for the full migration plan.
         conn = sqlite3.connect(self._db_path)
         try:
             yield conn

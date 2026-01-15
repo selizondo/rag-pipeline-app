@@ -1,0 +1,10 @@
+{
+  "run_date": "2026-05-16",
+  "model": "placeholder",
+  "note": "Run pending — requires Ollama and llm-eval-harness to be running. Regenerate with: make eval > artifacts/eval/latest_run.json",
+  "metrics": {
+    "accuracy_at_4": null,
+    "faithfulness": null,
+    "answer_relevancy": null
+  }
+}
