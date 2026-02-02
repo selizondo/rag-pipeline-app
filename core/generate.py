@@ -151,13 +151,14 @@ def _stream_anthropic(
     import anthropic
 
     model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    max_tokens = int(os.getenv("ANTHROPIC_MAX_TOKENS", "1024"))
     client = anthropic.Anthropic()
     prompt = _build_prompt(question, chunks)
 
     try:
         with client.messages.stream(
             model=model,
-            max_tokens=1024,
+            max_tokens=max_tokens,
             temperature=temperature,
             system=_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
