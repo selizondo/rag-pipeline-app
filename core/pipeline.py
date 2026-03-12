@@ -4,12 +4,17 @@ Orchestration: retrieve → generate, with observability logging.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Bumped in config when corpus is re-ingested; surfaced in every response so callers
+# can correlate result quality shifts with corpus updates without parsing logs.
+CORPUS_VERSION = os.getenv("CORPUS_VERSION", "v1")
 
 from .generate import stream_answer
 from .retrieve import HybridRetriever, RetrievedChunk
@@ -171,6 +176,8 @@ class RAGPipeline:
                 "retrieval_ms": round(result.retrieval_ms, 1),
                 "generation_ms": round(result.generation_ms, 1),
                 "num_chunks": len(chunks),
+                "retrieval_strategy": "hybrid",
+                "corpus_version": CORPUS_VERSION,
             },
             "sources": result.sources,
             "chunks": [

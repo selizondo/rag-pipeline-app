@@ -36,6 +36,9 @@ class QueryMeta(BaseModel):
     # but falls back to "vector_only" if BM25 index wasn't built (e.g., empty corpus
     # at startup). Callers can alert on non-hybrid to detect silent degradation.
     retrieval_strategy: str = "hybrid"
+    # Corpus version from CORPUS_VERSION env var (bumped when corpus is re-ingested).
+    # Allows callers to correlate result quality changes with corpus updates.
+    corpus_version: str = "v1"
 
 
 class QueryResponse(BaseModel):
