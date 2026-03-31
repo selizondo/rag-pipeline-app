@@ -278,6 +278,14 @@ rag-pipeline-app/
 
 ---
 
+## Architectural Standard
+
+The α-sweep experiment (vector-only vs hybrid at α = 0.1, 0.3, 0.5, 0.7, 0.9) is a reusable methodology, not just a one-time result. The template is: define the metric, sweep the tradeoff, document the breakeven. Any team asking "should we use hybrid retrieval?" can skip the debate and run this experiment on their own corpus in an afternoon. The answer will be different for their data — that's the point. What transfers is the measurement discipline, not the α value.
+
+The [ADR-01](docs/adr-01-hybrid-search.md) and [scale design note](docs/scale-design.md) are the artifacts that make this reusable: they explain *why* α=0.7 for this corpus, what the cost is at 10x scale, and at what point the decision should be revisited. A team adopting this pattern gets the evidence trail, not just the implementation.
+
+---
+
 ## Related Projects
 
 | Project | Connection |
