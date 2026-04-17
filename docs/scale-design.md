@@ -1,6 +1,6 @@
 # System Design: RAG at Scale
 
-This document addresses: how would you evolve this system to handle 100k → 1M documents, multiple tenants, and 10k queries/day? Written for the FANG interview context where you need to show production-system thinking beyond the demo.
+This document addresses: how would you evolve this system to handle 100k → 1M documents, multiple tenants, and 10k queries/day?
 
 ---
 

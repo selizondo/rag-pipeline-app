@@ -32,11 +32,11 @@ Default `α = 0.7` (70% vector, 30% BM25), tunable per-request via API.
 
 **Communication:** HTTP/SSE — backend streams tokens via Server-Sent Events; frontend consumes in streaming mode.
 
-**Alternatives considered:** FastAPI + Next.js (overkill for portfolio, requires JS build pipeline); FastAPI + Gradio (less control over layout).
+**Alternatives considered:** FastAPI + Next.js (overkill for this scope, requires JS build pipeline); FastAPI + Gradio (less control over layout).
 
 **Tradeoff:** Two processes to manage locally. Mitigated by `make dev`. SSE over HTTP adds ~5ms per request — imperceptible.
 
-**Scale boundary:** At portfolio scale (1 instance), shared `obs.db` and `chroma_db` via volume is fine. Multi-replica deployment requires care: move to PostgreSQL + Qdrant, add tenant isolation.
+**Scale boundary:** At single-instance scale, shared `obs.db` and `chroma_db` via volume is fine. Multi-replica deployment requires care: move to PostgreSQL + Qdrant, add tenant isolation.
 
 ---
 

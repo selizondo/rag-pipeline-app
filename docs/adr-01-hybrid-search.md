@@ -39,7 +39,7 @@ BM25 index is built once at startup from all chunks stored in Chroma. Rebuilt au
 
 **Positive:**
 - Handles exact keyword queries that pure vector misses (~15% of the eval cases improved by ≥1 correctness point in internal testing).
-- `α` slider in the UI lets interviewers see the tradeoff live — a strong demo artifact.
+- `α` slider in the UI makes the retrieval strategy tradeoff observable at runtime.
 - BM25 implementation is pure Python (`rank_bm25`); no GPU or separate service required.
 
 **Negative:**

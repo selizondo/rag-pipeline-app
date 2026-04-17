@@ -157,7 +157,7 @@ Chunk size 256, overlap 32 is the configuration used here.
 
 ```bash
 # 1. Set up env (API keys live in workspace master .env)
-cp ../career/.env.example ../career/.env
+cp .env.example .env
 # Default LLM_PROVIDER=ollama — no key needed.
 # For Anthropic: uncomment ANTHROPIC_API_KEY and set LLM_PROVIDER=anthropic
 
