@@ -2,7 +2,7 @@
 
 A full-stack AI knowledge assistant built to answer a specific question: **what does it actually take to go from a working RAG script to something you could ship?**
 
-The baseline ([rag-pipeline-from-scratch](../rag-pipeline-from-scratch)) proved the core idea works. This project is about the gap between "it works on my laptop" and "it's observable, testable, and extendable." Every decision here was made to close a specific failure mode — and measured before committing to it.
+The baseline ([rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch)) proved the core idea works. This project is about the gap between "it works on my laptop" and "it's observable, testable, and extendable." Every decision here was made to close a specific failure mode — and measured before committing to it.
 
 **Stack:** Python · FastAPI · Streamlit · Chroma · BM25 · sentence-transformers · Claude/Ollama · SQLite
 
@@ -66,13 +66,13 @@ The HTTP boundary between the API and UI is the central design decision. `core/`
 
 ## What Changed and Why
 
-| Feature | [rag-pipeline-from-scratch](../rag-pipeline-from-scratch) | This project |
+| Feature | [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) | This project |
 |---------|----------------------------------------------------------|--------------|
 | Interface | CLI script | Streamlit UI + FastAPI REST API |
 | Search | Vector only | **Hybrid BM25 + vector** — measured improvement |
 | Generation | Blocking, full response | **Token-by-token streaming** via SSE |
 | Observability | None | SQLite: latency per stage, chunk scores, query log |
-| Eval integration | Manual | Wired to [llm-eval-harness](../llm-eval-harness) — one command |
+| Eval integration | Manual | Wired to [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) — one command |
 | Testability | Run the whole script | `core/` and `api/` independently testable |
 | Deployable | No | Dockerfile + docker-compose |
 
@@ -82,7 +82,7 @@ The HTTP boundary between the API and UI is the central design decision. `core/`
 
 Pure vector search has a well-known failure mode on exact keyword queries. The fix — combining BM25 with vector similarity — is standard in production RAG systems. The question is whether it's worth the added complexity for this corpus.
 
-We measured it using the [llm-eval-harness](../llm-eval-harness) before choosing the default:
+We measured it using the [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) before choosing the default:
 
 | α (vector weight) | Accuracy@4 | Hallucination rate | Notes |
 |-------------------|------------|-------------------|-------|
@@ -203,7 +203,7 @@ API docs at [http://localhost:8000/docs](http://localhost:8000/docs) — full Op
 
 ## Eval Integration
 
-Requires the [llm-eval-harness](../llm-eval-harness) sibling project and an Anthropic API key for the LLM judge. The harness scores each answer on correctness, groundedness, and conciseness (1–5 each); reports Accuracy@4 and hallucination rate; detects regressions case-by-case.
+Requires the [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) sibling project and an Anthropic API key for the LLM judge. The harness scores each answer on correctness, groundedness, and conciseness (1–5 each); reports Accuracy@4 and hallucination rate; detects regressions case-by-case.
 
 ```bash
 # Baseline: record current performance
@@ -290,7 +290,7 @@ The [ADR-01](docs/adr-01-hybrid-search.md) and [scale design note](docs/scale-de
 
 | Project | Connection |
 |---|---|
-| [rag-pipeline-from-scratch](../rag-pipeline-from-scratch) | The baseline this system extends — 72% Accuracy@4 with vector-only retrieval vs 83% here with hybrid BM25+vector |
-| [llm-eval-harness](../llm-eval-harness) | Evaluation layer — `evals/cases/rag_qa.jsonl` was built against this system; run `make eval` to reproduce the α=0.7 result |
-| [llm-drift-monitor](../llm-drift-monitor) | Monitoring counterpart — drift monitor catches production degradation between the releases this harness validates |
-| [rag-ragas-eval](../rag-ragas-eval) | RAGAS-based evaluation of the same retrieval pipeline using faithfulness, answer relevancy, and context precision |
+| [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) | The baseline this system extends — 72% Accuracy@4 with vector-only retrieval vs 83% here with hybrid BM25+vector |
+| [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) | Evaluation layer — `evals/cases/rag_qa.jsonl` was built against this system; run `make eval` to reproduce the α=0.7 result |
+| [llm-drift-monitor](https://github.com/selizondo/llm-drift-monitor) | Monitoring counterpart — drift monitor catches production degradation between the releases this harness validates |
+| [rag-ragas-eval](https://github.com/selizondo/rag-ragas-eval) | RAGAS-based evaluation of the same retrieval pipeline using faithfulness, answer relevancy, and context precision |
