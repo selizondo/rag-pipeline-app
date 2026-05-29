@@ -1,25 +1,28 @@
-.PHONY: install dev api ui demo test eval eval-save eval-compare eval-smoke clean
+.PHONY: bootstrap test dev api ui demo eval eval-save eval-compare eval-smoke clean
 
 # --- Local development ---
 
-install:
-	pip install -r requirements.txt
+bootstrap:
+	UV_PROJECT_ENVIRONMENT=.venv uv sync
+
+test:
+	uv run pytest
 
 api:
-	uvicorn api.main:app --reload --port 8000
+	uv run uvicorn api.main:app --reload --port 8000
 
 ui:
-	streamlit run ui/app.py --server.port 8501
+	uv run streamlit run ui/app.py --server.port 8501
 
 dev:
 	@echo "Starting API and UI in background..."
-	uvicorn api.main:app --reload --port 8000 &
+	uv run uvicorn api.main:app --reload --port 8000 &
 	sleep 3
-	streamlit run ui/app.py --server.port 8501
+	uv run streamlit run ui/app.py --server.port 8501
 
 # --- Demo (one-command local stack) ---
 
-demo: install
+demo: bootstrap
 	@echo ""
 	@echo "=============================================="
 	@echo "  RAG App Demo"
@@ -28,7 +31,7 @@ demo: install
 	@echo "=============================================="
 	@echo ""
 	@echo "Step 1: starting API..."
-	uvicorn api.main:app --reload --port 8000 &
+	uv run uvicorn api.main:app --reload --port 8000 &
 	sleep 3
 	@echo "Step 2: ingesting demo corpus..."
 	curl -s -X POST http://localhost:8000/api/v1/ingest \
@@ -36,7 +39,7 @@ demo: install
 	  -d "{\"corpus_dir\": \"$$(pwd)/demo/corpus\"}" | python3 -m json.tool
 	@echo ""
 	@echo "Step 3: starting UI (Ctrl+C to stop)..."
-	streamlit run ui/app.py --server.port 8501
+	uv run streamlit run ui/app.py --server.port 8501
 
 # --- Docker ---
 
@@ -57,29 +60,26 @@ docker-ingest:
 # --- Evals ---
 
 eval:
-	python evals/run_evals.py \
+	uv run python evals/run_evals.py \
 	  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
 	  --tag rag_app_v1
 
-# Save eval results to the committed artifact.
-# Requires: Ollama running + llm-eval-harness sibling repo.
-# Result is committed so accuracy regressions are detectable in code review.
 eval-save:
 	mkdir -p artifacts/eval
-	python evals/run_evals.py \
+	uv run python evals/run_evals.py \
 	  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
 	  --tag rag_app_v1 \
 	  --output artifacts/eval/latest_run.json
 
 eval-compare:
 	@echo "Usage: make eval-compare COMPARE=<run_id>"
-	python evals/run_evals.py \
+	uv run python evals/run_evals.py \
 	  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
 	  --tag rag_app_v1 \
 	  --compare $(COMPARE)
 
 eval-smoke:
-	python evals/run_evals.py \
+	uv run python evals/run_evals.py \
 	  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
 	  --tag smoke \
 	  --limit 3

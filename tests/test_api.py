@@ -40,19 +40,17 @@ def client():
         mock_pipeline.retriever._collection.count.return_value = 0
         mock_pipeline.retriever._bm25 = None
 
-        with patch("api.main.RAGPipeline", return_value=mock_pipeline):
-            with patch("api.main.HybridRetriever"):
-                import importlib
-                import api.main as main_module
-                importlib.reload(main_module)
+        with patch("core.retrieve.HybridRetriever"), \
+             patch("core.pipeline.RAGPipeline", return_value=mock_pipeline):
+            import importlib
+            import api.main as main_module
+            importlib.reload(main_module)
 
-                from fastapi.testclient import TestClient as _TC
-                app = main_module.app
-                # Manually set pipeline on the module so routes can find it
-                main_module.pipeline = mock_pipeline
+            from fastapi.testclient import TestClient as _TC
+            app = main_module.app
 
-                with _TC(app) as tc:
-                    yield tc, mock_pipeline
+            with _TC(app) as tc:
+                yield tc, mock_pipeline
 
 
 # ---------------------------------------------------------------------------

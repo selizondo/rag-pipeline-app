@@ -52,7 +52,13 @@ class HybridRetriever:
         self._build_bm25_index()
 
     def _build_bm25_index(self) -> None:
-        result = self._collection.get(include=["documents", "metadatas", "embeddings"])
+        try:
+            result = self._collection.get(include=["documents", "metadatas", "embeddings"])
+        except Exception:
+            self._bm25 = None
+            self._all_docs = []
+            return
+
         ids = result["ids"]
         docs = result["documents"] or []
         metas = result["metadatas"] or []
