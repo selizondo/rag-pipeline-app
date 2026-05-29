@@ -15,8 +15,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # App fixture: patch HybridRetriever and RAGPipeline before importing app
@@ -43,6 +41,7 @@ def client():
         with patch("core.retrieve.HybridRetriever"), \
              patch("core.pipeline.RAGPipeline", return_value=mock_pipeline):
             import importlib
+
             import api.main as main_module
             importlib.reload(main_module)
 

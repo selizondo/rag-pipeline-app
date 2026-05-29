@@ -10,14 +10,14 @@ from core.ingest import ingest_directory
 from core.pipeline import RAGPipeline
 
 from .models import (
+    ChunkRef,
     HealthResponse,
     IngestRequest,
     IngestResponse,
+    QueryMeta,
     QueryRequest,
     QueryResponse,
     SourceRef,
-    ChunkRef,
-    QueryMeta,
 )
 
 router = APIRouter()

@@ -6,13 +6,14 @@ import os
 from contextlib import asynccontextmanager
 
 from core.config import load_env
+
 load_env()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.retrieve import HybridRetriever
 from core.pipeline import RAGPipeline
+from core.retrieve import HybridRetriever
 
 CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_db")
 COLLECTION = os.getenv("COLLECTION_NAME", "rag_corpus")
@@ -53,4 +54,5 @@ app.add_middleware(
 )
 
 from api.routes import router  # noqa: E402  (after app is created)
+
 app.include_router(router, prefix="/api/v1")

@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # Minimal stubs so we can import HybridRetriever without a real Chroma/ST
 # ---------------------------------------------------------------------------
@@ -131,7 +130,7 @@ class TestBM25RebuildFailure:
         retriever, mock_collection = _make_retriever([])
 
         # _bm25 was None initially; after a failed rebuild it should still be None
-        initial_bm25 = retriever._bm25
+        _initial_bm25 = retriever._bm25
         mock_collection.get.side_effect = RuntimeError("Chroma internal error")
 
         try:

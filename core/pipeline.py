@@ -10,7 +10,6 @@ import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
 
 # Bumped in config when corpus is re-ingested; surfaced in every response so callers
 # can correlate result quality shifts with corpus updates without parsing logs.

@@ -49,9 +49,9 @@ def main():
     args = parser.parse_args()
 
     try:
+        from evals.dashboard import print_summary
         from evals.harness import run_eval
         from evals.metrics import compute_summary
-        from evals.dashboard import print_summary, print_cases
     except ImportError as e:
         print(f"ERROR: Could not import eval harness: {e}")
         print(f"  Ensure llm-eval-harness is at: {HARNESS_DIR}")
