@@ -1,5 +1,7 @@
 # RAG App
 
+![Tests](https://github.com/selizondo/rag-pipeline-app/actions/workflows/test.yml/badge.svg)
+
 A full-stack AI knowledge assistant built to answer a specific question: **what does it actually take to go from a working RAG script to something you could ship?**
 
 The baseline ([rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch)) proved the core idea works. This project is about the gap between "it works on my laptop" and "it's observable, testable, and extendable." Every decision here was made to close a specific failure mode — and measured before committing to it.
