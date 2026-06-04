@@ -187,6 +187,29 @@ Open [http://localhost:8501](http://localhost:8501). Try:
 - "What is LoRA?" *(acronym — BM25 catches what vector misses)*
 - "Explain the bias-variance tradeoff" *(concept — hybrid wins)*
 
+**Sample API response** (via `curl http://localhost:8000/api/v1/query`):
+```json
+{
+  "question": "What is LoRA?",
+  "answer": "LoRA (Low-Rank Adaptation) is a parameter-efficient fine-tuning technique that adds small, trainable adapters to a frozen pre-trained model instead of updating all weights...",
+  "sources": [
+    {
+      "chunk": "LoRA stands for Low-Rank Adaptation, a method to adapt pre-trained models...",
+      "source": "ml_interview_qa.md",
+      "bm25_score": 8.432,
+      "vector_score": 0.78,
+      "combined_score": 0.824
+    }
+  ],
+  "latency_ms": {
+    "retrieval": 45,
+    "generation": 2340
+  }
+}
+```
+
+The `combined_score` is the α-weighted fusion of BM25 (lexical match) and vector (semantic similarity). Here, BM25 contributes 8.43 (exact match on "LoRA" keyword), vector adds 0.78 (semantic relevance). At α=0.7, the hybrid rank pulls this to the top of results where vector-only would have missed it.
+
 One-command shortcut: `make demo`
 
 ---
