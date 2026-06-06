@@ -2,334 +2,55 @@
 
 ![Tests](https://github.com/selizondo/rag-pipeline-app/actions/workflows/test.yml/badge.svg)
 
-A full-stack AI knowledge assistant built to answer a specific question: **what does it actually take to go from a working RAG script to something you could ship?**
+Teams ship a RAG prototype that works on whiteboard questions. The real test is production: acronym queries that vector search misses, LLM costs that compound at 10k queries/day, and a wrong answer with no way to know whether retrieval or generation was the cause.
 
-The baseline ([rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch)) proved the core idea works. This project is about the gap between "it works on my laptop" and "it's observable, testable, and extendable." Every decision here was made to close a specific failure mode — and measured before committing to it.
+This is the step between "the RAG script works" and "it is observable, testable, and improvable." Every decision was measured before it was made.
 
 **Stack:** Python · FastAPI · Streamlit · Chroma · BM25 · sentence-transformers · Claude/Ollama · SQLite
 
----
+## Results
 
-## Key Concepts
+Hybrid BM25 + vector search versus the vector-only baseline, measured with the [llm-eval-harness](https://github.com/selizondo/llm-eval-harness):
 
-**Hybrid BM25 + vector search:** Two complementary retrieval strategies. BM25 uses exact keyword matching (fast, precise on technical terms like "LoRA"). Vector search uses semantic similarity (good for paraphrases and concepts). Hybrid fusion combines both — a query "What is LoRA?" hits BM25 on the exact acronym, while vector search finds semantically related chunks. This project weights vector 70% + BM25 30% (α=0.7) and measures the tradeoff with evals.
+| Retrieval approach | Accuracy@4 | Hallucination rate |
+|--------------------|------------|-------------------|
+| Vector only (baseline) | 79% | 4% |
+| Hybrid alpha=0.7 (default) | **83%** | **3%** |
+| Hybrid alpha=0.5 | 80% | 4% |
+| BM25 only | 61% | 8% |
 
-**Alpha weighting:** The hyperparameter controlling hybrid fusion balance. α=1.0 means vector-only (semantic), α=0.0 means BM25-only (keyword). This project exposes α as a slider in the UI so users see the difference live — dense retrieval vs hybrid vs keyword-based, all on the same query.
+4 percentage points at alpha=0.7. The gain is concentrated on exact-keyword queries: acronyms (LoRA, BM25, RLHF), model names, and specific method names that embed poorly but score high on term frequency.
 
-**Streaming (SSE):** Server-Sent Events — the server sends tokens to the browser as they arrive, instead of waiting for the full response. Token-by-token streaming is the UX threshold for LLM applications. Without it, users see a blank screen for 3–5 seconds before any output. Implemented via FastAPI `StreamingResponse` and consumed by the Streamlit frontend.
+## How It Works
 
-**Observability from day one:** Every query writes to SQLite with latency breakdown (retrieval time, generation time) and chunk scores (BM25, vector, combined). This is not optional instrumentation — it's the mechanism for measuring whether changes help or hurt. No observability = no way to validate improvements.
+### Hybrid retrieval because pure vector has a known failure mode
 
-**Chunking at 256 words:** A measured decision, not a convention. This project ran chunk-size experiments (128, 256, 512 words) against 20 eval queries. 256 words maximizes retrieval precision; 512 dilutes embeddings and hurts quality. The experiment methodology transfers to any new corpus.
+Exact keyword queries score poorly on vector similarity: the acronym "LoRA" does not embed near its expansion "Low-Rank Adaptation." BM25 catches what vector misses. The combination with configurable alpha weighting provides 83% Accuracy@4 versus 79% vector-only. Alpha is exposed as a live slider in the UI so the tradeoff is observable at runtime, not just in docs.
 
----
+### FastAPI + Streamlit split because Streamlit re-runs on every interaction
 
-## The Problem With the Baseline
+A monolithic Streamlit app re-runs the entire script on every user interaction: embedding model loads, BM25 index rebuilds, Chroma client reconnects. Startup time in the script: 4 to 6 seconds per query. The FastAPI backend starts once and holds all expensive state in memory for the lifetime of the process. The Streamlit frontend makes HTTP requests and stays thin. Secondary benefit: the eval harness, the CLI, and any future agent call the same `/api/v1/query` endpoint with no code duplication.
 
-The baseline RAG pipeline was a single Python script. It worked. It also had four problems that would block any real use:
+### Observability is the mechanism for validating changes
 
-1. **Pure vector search fails on exact keywords.** Query "What is LoRA?" — vector search retrieved chunks about "low-rank matrix decomposition" but missed the definition because the acronym doesn't embed close to its expansion. This affects ~15% of realistic queries.
-
-2. **Blocking generation.** The script waited for the full LLM response before printing anything. At 3–5 seconds per query, users stop waiting. Streaming isn't a nice-to-have; it's a UX threshold.
-
-3. **Nothing to observe.** After a query, there was no record of what was retrieved, how long it took, or which chunks scored highest. No way to know if a change to chunk size or retrieval depth helped or hurt.
-
-4. **Logic and display were tangled.** Retrieval and generation lived in the same script as the CLI output. Nothing else could call the pipeline — not a UI, not the eval harness, not an agent. Testing meant running the whole thing.
-
-This project solves all four.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Streamlit UI  (ui/app.py · port 8501)                  │
-│  ── SSE token stream  ──────────────────────────────►   │
-│  ◄── sources + latency metadata ──────────────────────  │
-└──────────────────┬──────────────────────────────────────┘
-                   │ HTTP / Server-Sent Events
-┌──────────────────▼──────────────────────────────────────┐
-│  FastAPI  (api/ · port 8000)                            │
-│  POST /api/v1/query/stream   ← SSE streaming            │
-│  POST /api/v1/query          ← blocking (for evals)     │
-│  POST /api/v1/ingest                                    │
-│  GET  /api/v1/health                                    │
-│  GET  /api/v1/queries        ← observability            │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-       ┌──────────┴───────────┐
-       ▼                      ▼
-┌─────────────┐        ┌──────────────────────┐
-│  Retrieve   │        │  Generate            │
-│             │        │                      │
-│  BM25 index │        │  Ollama  (local)     │
-│  + Chroma   │        │  or Claude API       │
-│  vector DB  │        │  (streaming tokens)  │
-└──────┬──────┘        └──────────────────────┘
-       │
-       ▼
-┌─────────────────────┐
-│  SQLite  (obs.db)   │
-│  queries + chunks   │
-│  latency per stage  │
-└─────────────────────┘
-```
-
-The HTTP boundary between the API and UI is the central design decision. `core/` and `api/` are testable without a browser. The eval harness calls the same `/api/v1/query` endpoint a user would — no special instrumentation. Any future client (CLI, agent, mobile) calls the API; the UI doesn't change.
-
----
-
-## What Changed and Why
-
-| Feature | [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) | This project |
-|---------|----------------------------------------------------------|--------------|
-| Interface | CLI script | Streamlit UI + FastAPI REST API |
-| Search | Vector only | **Hybrid BM25 + vector** — measured improvement |
-| Generation | Blocking, full response | **Token-by-token streaming** via SSE |
-| Observability | None | SQLite: latency per stage, chunk scores, query log |
-| Eval integration | Manual | Wired to [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) — one command |
-| Testability | Run the whole script | `core/` and `api/` independently testable |
-| Deployable | No | Dockerfile + docker-compose |
-
----
-
-## Decision 1: Hybrid BM25 + Vector Search
-
-Pure vector search has a well-known failure mode on exact keyword queries. The fix — combining BM25 with vector similarity — is standard in production RAG systems. The question is whether it's worth the added complexity for this corpus.
-
-We measured it using the [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) before choosing the default:
-
-| α (vector weight) | Accuracy@4 | Hallucination rate | Notes |
-|-------------------|------------|-------------------|-------|
-| 1.0 (vector only) | 79% | 4% | Good on semantic, misses keywords |
-| **0.7 (default)** | **83%** | **3%** | Best overall |
-| 0.5 | 80% | 4% | No gain over 0.7 |
-| 0.0 (BM25 only) | 61% | 8% | Brittle on paraphrase |
-
-The 4-point Accuracy@4 improvement at α=0.7 justified adding `rank_bm25`. The tradeoff is the BM25 index lives in RAM — all chunk texts, O(n) scoring on every query. At 50k chunks that's ~400 MB and ~2ms overhead. At 1M chunks, you'd replace this with Elasticsearch. See [docs/adr-01-hybrid-search.md](docs/adr-01-hybrid-search.md).
-
-The α slider is exposed in the UI so you can see the difference live.
-
-If metadata or version filters are used, they should be applied before the combined relevance ranking rather than as a post-hoc filter; otherwise stale or irrelevant chunks can still surface at the top. The hybrid search path also serves as the operational fallback when vector-only retrieval misses exact keyword matches.
-
----
-
-## Decision 2: FastAPI + Streamlit Split
-
-A monolithic Streamlit app was simpler to deploy. It was rejected for one concrete reason: Streamlit re-runs the entire script on every user interaction. That means the embedding model loads, the BM25 index rebuilds, and the Chroma client reconnects on every query. Startup time in the script: 4–6 seconds. Unacceptable.
-
-The FastAPI backend starts once and holds all expensive state in memory for the lifetime of the process. The Streamlit frontend makes HTTP requests — it stays thin and fast.
-
-Secondary benefits: the eval harness, the CLI, and any future agent call the same `/api/v1/query` endpoint without any code duplication. The OpenAPI schema is auto-generated and available at `/docs`. See [docs/adr-02-api-ui-split.md](docs/adr-02-api-ui-split.md).
-
----
-
-## Decision 3: Observability From Day One
-
-The baseline had no logging. The first sign of a retrieval problem would be a bad answer with no way to investigate.
-
-Every query writes to `obs.db`:
-- Total latency, split into retrieval time and generation time
-- Which chunks were retrieved, ranked by combined score
-- Per-chunk BM25 score, vector score, and combined score
-
-This makes the retrieval decision auditable. When a query returns a wrong answer, you can check whether retrieval found the right chunks (retrieval failure) or whether the LLM had the right context and still got it wrong (generation failure). Those require different fixes.
+Every query writes to SQLite: latency split into retrieval and generation stages, which chunks were retrieved, per-chunk BM25 score, vector score, and combined score. When a query returns a wrong answer, you can distinguish a retrieval failure (right chunks not returned) from a generation failure (right chunks, still wrong answer). Those require different fixes. Without this distinction, changes are guesses.
 
 ```sql
 -- Where did latency go?
 SELECT question, latency_ms, retrieval_ms, generation_ms
 FROM queries ORDER BY latency_ms DESC LIMIT 10;
-
--- What did retrieval actually return for a given query?
-SELECT r.rank, r.source, r.combined_score, r.bm25_score, r.vector_score
-FROM retrievals r JOIN queries q ON r.query_id = q.id
-WHERE q.id = <query_id>;
 ```
 
-REST endpoint: `GET /api/v1/queries?limit=20`
+**Companion post:** "From Prototype to Production: Hybrid RAG" (AI Systems in Production series, coming soon)
+**Related projects:** [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) (72% Accuracy@4 vector-only baseline this system extends) · [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) (harness that produced the alpha=0.7 measurement) · [llm-drift-monitor](https://github.com/selizondo/llm-drift-monitor) (drift monitor for catching production degradation between releases)
 
 ---
 
-## Decision 4: Chunking at 256 Words
+## Go Deeper
 
-Chunk size is the most consequential parameter in a RAG pipeline and the one most often set by intuition. We ran the experiment using the eval harness before building this:
-
-| Chunk size | Accuracy@4 | Hallucination rate | Why |
-|------------|------------|-------------------|-----|
-| 128 words | 74% | 5% | Too granular — fragments context |
-| **256 words** | **83%** | **3%** | Best balance |
-| 512 words | 58% | 17% | Dilutes embedding signal; retrieval becomes imprecise |
-
-The 512-word result is counterintuitive — bigger context in each chunk, but worse answers. The reason: with larger chunks, embeddings average over more content and stop representing any specific concept well. Retrieval fetches chunks that are broadly related rather than specifically relevant, and the LLM fills the remaining gaps with hallucinations.
-
-Chunk size 256, overlap 32 is the configuration used here.
-
----
-
-## Quick Start
-
-**Runs locally — no GPU required. Ollama is the default LLM.**
-
-```bash
-# 1. Set up env (API keys live in workspace master .env)
-cp .env.example .env
-# Default LLM_PROVIDER=ollama — no key needed.
-# For Anthropic: uncomment ANTHROPIC_API_KEY and set LLM_PROVIDER=anthropic
-
-# 2. Activate shared venv
-source ~/.venvs/newline/bin/activate
-# or: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-
-# 3. Pull Ollama model (if not already pulled)
-ollama pull qwen2.5-coder:7b
-
-# 4. Start API
-uvicorn api.main:app --reload --port 8000
-
-# 5. Ingest a corpus (new terminal)
-curl -X POST http://localhost:8000/api/v1/ingest \
-  -H "Content-Type: application/json" \
-  -d '{"corpus_dir": "./demo/corpus"}'
-
-# 6. Start UI
-streamlit run ui/app.py
-```
-
-Open [http://localhost:8501](http://localhost:8501). Try:
-- "What is the attention mechanism in transformers?" *(semantic — vector wins)*
-- "What is LoRA?" *(acronym — BM25 catches what vector misses)*
-- "Explain the bias-variance tradeoff" *(concept — hybrid wins)*
-
-**Sample API response** (via `curl http://localhost:8000/api/v1/query`):
-```json
-{
-  "question": "What is LoRA?",
-  "answer": "LoRA (Low-Rank Adaptation) is a parameter-efficient fine-tuning technique that adds small, trainable adapters to a frozen pre-trained model instead of updating all weights...",
-  "sources": [
-    {
-      "chunk": "LoRA stands for Low-Rank Adaptation, a method to adapt pre-trained models...",
-      "source": "ml_interview_qa.md",
-      "bm25_score": 8.432,
-      "vector_score": 0.78,
-      "combined_score": 0.824
-    }
-  ],
-  "latency_ms": {
-    "retrieval": 45,
-    "generation": 2340
-  }
-}
-```
-
-The `combined_score` is the α-weighted fusion of BM25 (lexical match) and vector (semantic similarity). Here, BM25 contributes 8.43 (exact match on "LoRA" keyword), vector adds 0.78 (semantic relevance). At α=0.7, the hybrid rank pulls this to the top of results where vector-only would have missed it.
-
-One-command shortcut: `make demo`
-
----
-
-## Docker
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-docker compose up          # builds API + UI containers
-make docker-ingest         # loads demo corpus into the running stack
-```
-
-API docs at [http://localhost:8000/docs](http://localhost:8000/docs) — full OpenAPI schema, try-it-out UI.
-
----
-
-## Eval Integration
-
-Requires the [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) sibling project and an Anthropic API key for the LLM judge. The harness scores each answer on correctness, groundedness, and conciseness (1–5 each); reports Accuracy@4 and hallucination rate; detects regressions case-by-case.
-
-```bash
-# Baseline: record current performance
-python evals/run_evals.py \
-  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
-  --tag rag_app_v1
-
-# After a change (chunk size, α, model swap): compare
-python evals/run_evals.py \
-  --cases ../llm-eval-harness/evals/cases/rag_qa.jsonl \
-  --tag rag_app_v2 \
-  --compare <run_id>
-
-make eval-smoke   # 3-case sanity check, ~30 seconds
-```
-
-The eval loop is what turned the decisions above from opinions into data.
-
----
-
-## Where This Breaks (and What to Do)
-
-**BM25 index in RAM:** holds all chunk texts in memory. At 50k chunks (~400 MB) — fine. At 1M chunks (~8 GB) — replace with Elasticsearch. The `HybridRetriever` interface stays stable; only the BM25 backend changes.
-
-**Single Chroma instance:** file-backed, no replication. Fine for single-user demo; at team scale use Chroma's HTTP server mode or migrate to Qdrant.
-
-**Synchronous ingest:** the `/ingest` endpoint blocks until all chunks are embedded. At 50k documents that's minutes. Fix: return a `job_id` immediately, process via Celery in the background.
-
-**Cost at 10k queries/day with Claude Haiku:** ~$375/month uncached, ~$175/month with prompt caching on the context prefix. At 100k queries/day, evaluate self-hosted open models (Llama 3.x via vLLM).
-
-Full analysis in [docs/scale-design.md](docs/scale-design.md) — covers multi-tenancy, async ingest queues, cost projections at 10k and 100k queries/day.
-
----
-
-## Files
-
-```
-rag-pipeline-app/
-├── api/
-│   ├── main.py          # FastAPI app, lifespan startup (model + BM25 index load)
-│   ├── routes.py        # /query, /query/stream, /ingest, /health, /queries
-│   └── models.py        # Pydantic request/response schemas
-├── core/
-│   ├── ingest.py        # Word-based chunking with section header metadata
-│   ├── retrieve.py      # HybridRetriever: BM25 + Chroma, α-weighted fusion
-│   ├── generate.py      # Streaming generation: Ollama or Anthropic SDK
-│   └── pipeline.py      # Orchestration + per-query SQLite logging
-├── ui/
-│   └── app.py           # Streamlit: SSE consumer, sources panel, α slider
-├── evals/
-│   └── run_evals.py     # Wraps /api/v1/query as a callable for llm-eval-harness
-├── demo/
-│   └── corpus/          # ML fundamentals corpus — covers all eval case topics
-├── docs/
-│   ├── adr-01-hybrid-search.md    # Why BM25+vector, with eval numbers
-│   ├── adr-02-api-ui-split.md     # Why FastAPI+Streamlit vs monolith
-│   └── scale-design.md            # 100k docs · 1M docs · 10k queries/day
-├── Makefile             # make demo · make eval · make docker-up
-├── Dockerfile
-└── docker-compose.yml
-```
-
----
-
-## What I'd Do With More Time
-
-- **Cross-encoder reranking:** rerank top-20 hybrid results to top-5 using `cross-encoder/ms-marco-MiniLM-L-6-v2`; typically +5–8% Accuracy@4 at ~150ms added latency
-- **Async ingest:** `POST /ingest` returns `job_id` immediately; Celery worker processes in background; status at `GET /ingest/{job_id}`
-- **Multi-tenant collections:** one Chroma collection per tenant; JWT middleware extracts `tenant_id`; per-tenant delete, access control, usage metering
-- **LangFuse integration:** ship latency and judge scores to LangFuse automatically after each eval run — replaces manual SQLite queries with a dashboard
-- **Hosted deployment:** FastAPI on Railway, UI on Streamlit Community Cloud, Qdrant Cloud for the vector store — total cost ~$30/month at demo scale
-
----
-
-## Architectural Standard
-
-The α-sweep experiment (vector-only vs hybrid at α = 0.1, 0.3, 0.5, 0.7, 0.9) is a reusable methodology, not just a one-time result. The template is: define the metric, sweep the tradeoff, document the breakeven. Any team asking "should we use hybrid retrieval?" can skip the debate and run this experiment on their own corpus in an afternoon. The answer will be different for their data — that's the point. What transfers is the measurement discipline, not the α value.
-
-The [ADR-01](docs/adr-01-hybrid-search.md) and [scale design note](docs/scale-design.md) are the artifacts that make this reusable: they explain *why* α=0.7 for this corpus, what the cost is at 10x scale, and at what point the decision should be revisited. A team adopting this pattern gets the evidence trail, not just the implementation.
-
----
-
-## Related Projects
-
-| Project | Connection |
-|---|---|
-| [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) | The baseline this system extends — 72% Accuracy@4 with vector-only retrieval vs 83% here with hybrid BM25+vector |
-| [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) | Evaluation layer — `evals/cases/rag_qa.jsonl` was built against this system; run `make eval` to reproduce the α=0.7 result |
-| [llm-drift-monitor](https://github.com/selizondo/llm-drift-monitor) | Monitoring counterpart — drift monitor catches production degradation between the releases this harness validates |
-| [rag-ragas-eval](https://github.com/selizondo/rag-ragas-eval) | RAGAS-based evaluation of the same retrieval pipeline using faithfulness, answer relevancy, and context precision |
+| Audience | Doc |
+|----------|-----|
+| Business and product context | [Product and Cost](docs/product.md) |
+| Running the code | [Setup and Usage](docs/setup.md) |
+| Engineering decisions | [Design and Tradeoffs](docs/engineering.md) |
+| What breaks and why | [Failure Modes](docs/failures.md) |
