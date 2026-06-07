@@ -1,5 +1,19 @@
 # Setup and Usage
 
+## Key Concepts
+
+**Hybrid BM25 + vector search:** Two complementary retrieval strategies. BM25 uses exact keyword matching (fast, precise on technical terms like "LoRA"). Vector search uses semantic similarity (good for paraphrases and concepts). Hybrid fusion combines both — a query "What is LoRA?" hits BM25 on the exact acronym, while vector search finds semantically related chunks. This project weights vector 70% + BM25 30% (α=0.7) and measures the tradeoff with evals.
+
+**Alpha weighting:** The hyperparameter controlling hybrid fusion balance. α=1.0 means vector-only (semantic), α=0.0 means BM25-only (keyword). This project exposes α as a slider in the UI so users see the difference live — dense retrieval vs hybrid vs keyword-based, all on the same query.
+
+**Streaming (SSE):** Server-Sent Events — the server sends tokens to the browser as they arrive, instead of waiting for the full response. Token-by-token streaming is the UX threshold for LLM applications. Without it, users see a blank screen for 3–5 seconds before any output. Implemented via FastAPI `StreamingResponse` and consumed by the Streamlit frontend.
+
+**Observability from day one:** Every query writes to SQLite with latency breakdown (retrieval time, generation time) and chunk scores (BM25, vector, combined). This is not optional instrumentation — it's the mechanism for measuring whether changes help or hurt. No observability = no way to validate improvements.
+
+**Chunking at 256 words:** A measured decision, not a convention. This project ran chunk-size experiments (128, 256, 512 words) against 20 eval queries. 256 words maximizes retrieval precision; 512 dilutes embeddings and hurts quality. The experiment methodology transfers to any new corpus.
+
+---
+
 ## Prerequisites
 
 - Python 3.10+

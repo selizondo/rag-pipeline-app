@@ -8,6 +8,16 @@ This is the step between "the RAG script works" and "it is observable, testable,
 
 **Stack:** Python · FastAPI · Streamlit · Chroma · BM25 · sentence-transformers · Claude/Ollama · SQLite
 
+## Related Projects
+
+1. [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) — 72% Accuracy@4 vector-only baseline this system extends
+2. [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) — harness that produced the alpha=0.7 measurement
+3. [llm-drift-monitor](https://github.com/selizondo/llm-drift-monitor) — drift monitor for catching production degradation between releases
+
+*Companion post: [From Prototype to Production: Hybrid RAG](docs/blog_post.md) — why hybrid search, why observability, why API separation*
+
+---
+
 ## Results
 
 Hybrid BM25 + vector search versus the vector-only baseline, measured with the [llm-eval-harness](https://github.com/selizondo/llm-eval-harness):
@@ -41,10 +51,6 @@ SELECT question, latency_ms, retrieval_ms, generation_ms
 FROM queries ORDER BY latency_ms DESC LIMIT 10;
 ```
 
-**Companion post:** "From Prototype to Production: Hybrid RAG" (AI Systems in Production series, coming soon)
-**Related projects:** [rag-pipeline-from-scratch](https://github.com/selizondo/rag-pipeline-from-scratch) (72% Accuracy@4 vector-only baseline this system extends) · [llm-eval-harness](https://github.com/selizondo/llm-eval-harness) (harness that produced the alpha=0.7 measurement) · [llm-drift-monitor](https://github.com/selizondo/llm-drift-monitor) (drift monitor for catching production degradation between releases)
-
----
 
 ## Go Deeper
 
